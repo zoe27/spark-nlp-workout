@@ -2,8 +2,6 @@ package org.madhatter.spark.nlp.word2vec
 
 import org.apache.log4j.Logger
 import org.apache.spark._
-import org.apache.spark.rdd._
-import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.feature.{Word2Vec, Word2VecModel}
 
 /**
@@ -16,7 +14,7 @@ object Word2VecExample extends App {
     List("target/spark-nlp-workout-1.0.jar"))
   val datasetPath = "/Users/cenkcorapci/Documents/data-science/data/text8"
   val pretraindModelPath = "/Users/cenkcorapci/Documents/data-science/projects/spark-nlp-workout/model/text8word2vec"
-  var model: Word2VecModel = null
+  val synonyms = model.findSynonyms("china", 40)
   try {
     model = Word2VecModel.load(sc, pretraindModelPath)
   } catch {
@@ -32,9 +30,7 @@ object Word2VecExample extends App {
       // Save model
       model.save(sc, pretraindModelPath)
   }
-
-
-  val synonyms = model.findSynonyms("china", 40)
+  var model: Word2VecModel = null
 
   for ((synonym, cosineSimilarity) <- synonyms) {
     println(s"$synonym $cosineSimilarity")
@@ -68,10 +64,9 @@ object Word2VecExample extends App {
       }
   }
 
-
   def addVectors(vec1: Array[Float], vec2: Array[Float]): Array[Float] = {
     var res: Array[Float] = Array.ofDim(vec1.length)
-    for (i <- 0 until vec1.length) {
+    for (i <- vec1.indices) {
       res(i) = vec1(i) + vec2(i)
     }
     res
@@ -79,7 +74,7 @@ object Word2VecExample extends App {
 
   def substractVectors(vec1: Array[Float], vec2: Array[Float]): Array[Float] = {
     var res: Array[Float] = Array.ofDim(vec1.length)
-    for (i <- 0 until vec1.length) {
+    for (i <- vec1.indices) {
       res(i) = vec1(i) - vec2(i)
     }
     res
