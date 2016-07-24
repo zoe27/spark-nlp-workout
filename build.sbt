@@ -12,6 +12,8 @@ assemblyMergeStrategy in assembly := {
 
 libraryDependencies += "org.apache.spark" %% "spark-core" % "1.6.1" //% "provided"
 libraryDependencies += "org.apache.spark" %% "spark-mllib" % "1.6.1" //% "provided"
+libraryDependencies += "org.apache.spark" %% "spark-streaming-twitter" % "1.6.1"
+libraryDependencies += "joda-time" % "joda-time" % "2.3"
 //libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.4"
 //libraryDependencies += "org.deeplearning4j" % "deeplearning4j-core" % "0.4-rc3.8"
 //libraryDependencies += "org.deeplearning4j" % "deeplearning4j-nlp" % "0.4-rc3.8"

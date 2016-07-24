@@ -83,7 +83,7 @@ object Cluster extends App {
               failedSearches = failedSearches + 1
               DenseVector(zeroVector)
           }
-          val total = words.map(w => getVec(w)).reduce(_ + _) / (words.length - failedSearches)
+          val total = words.map(w => getVec(w)).reduce(_ + _) // /(words.length - failedSearches)
           if (failedSearches == words.length) println(s"Can not find $line")
           else println(s"cluster ${closestPoint(total, centers)}")
         } else {
