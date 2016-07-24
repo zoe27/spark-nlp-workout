@@ -73,6 +73,7 @@ object Cluster extends App {
         val words = line.split(" ")
         if (words.isEmpty) println("no input")
         else if (words.length > 1) {
+          //if a phrase is given as an input, avg of all the vectors that we can find will be used
           val zeroVector = vectorModel.getVectors.take(1).map { case (x, y) => y.map(x => 0d) }.toList(0)
           var failedSearches: Int = 0
           def getVec(w: String): Vector[Double] = vectorModel.getVectors.get(w) match {
@@ -82,7 +83,7 @@ object Cluster extends App {
               failedSearches = failedSearches + 1
               DenseVector(zeroVector)
           }
-          val total = words.map(w => getVec(w)).reduce(_ + _)
+          val total = words.map(w => getVec(w)).reduce(_ + _) / (words.length - failedSearches)
           if (failedSearches == words.length) println(s"Can not find $line")
           else println(s"cluster ${closestPoint(total, centers)}")
         } else {
