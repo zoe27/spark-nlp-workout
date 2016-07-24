@@ -19,7 +19,7 @@ object Word2VecExample extends App {
     .set("spark.driver.memory", "4g")
   private val sc = new SparkContext("local", "Word Count", conf)
 
-  val datasetPath = "/Users/madhatter/Documents/data-science/data/text8.txt"
+  val datasetPath = "./data/text8/text8"
   val pretraindModelPath = "./model/data/text8word2vec"
 
   trainAndTest()
