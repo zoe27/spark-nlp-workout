@@ -1,11 +1,10 @@
 package org.madhatter.spark.nlp.entityextractionwithword2vec
 
-import java.util.concurrent.atomic.AtomicInteger
 
-import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import breeze.linalg.{DenseVector, Vector, squaredDistance}
 import org.apache.log4j.Logger
-import org.apache.spark.ml.clustering.KMeans
+import org.apache.spark.ml.clustering.{KMeans, KMeansModel}
 import org.apache.spark.mllib.feature.{Word2Vec, Word2VecModel}
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.sql.DataFrame
@@ -25,10 +24,14 @@ object Cluster extends App {
   private val sc = new SparkContext("local", "Word Count", conf)
   val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 
+  //paths
   val datasetPath = "./data/text8/text8"
   val pretraindModelPath = "./model/data/text8word2vec"
   val clusteringOutputPath = "./clustering/"
-
+  val clusteringModelOutputPath = "./clustering/kmeans_model"
+  //parameters
+  val clusterSize = 500
+  val kmeansMaxIter = 10
   trainAndTest()
 
   def trainAndTest(): Unit = {
@@ -40,31 +43,26 @@ object Cluster extends App {
           (word, Vectors.dense(vectorArr.map(_.toDouble)))
         }).toDF("id", "features")
 
-      // Trains a k-means model
-      val kmeans = new KMeans()
-        .setK(500)
-        .setMaxIter(2)
-        .setFeaturesCol("features")
-        .setPredictionCol("prediction")
-      val kmeansModel = kmeans.fit(dataset)
+
+      val kmeansModel = loadKmeans(dataset)
+
       // Shows the resulting centers
       println("Final Centers: ")
+      kmeansModel.clusterCenters.foreach(println)
       //print words with their respective clusters
       val clusteringOutputSystem = ActorSystem("ClusteringOutputSystem")
-      val actors: Array[ActorRef] = kmeansModel.clusterCenters.zipWithIndex.map { case (center: Vector[Double], id: Int) =>
-        log.debug(s"created write buffer actor for cluster #$id")
-        clusteringOutputSystem.actorOf(Props(new ClusterPrinterActor(id, clusteringOutputPath, center.toJson)))
+      val actors: Array[ActorRef] = kmeansModel.clusterCenters.zipWithIndex.map {
+        case (center, id) =>
+          log.debug(s"creating write buffer actor for cluster #$id")
+          clusteringOutputSystem.actorOf(Props(new ClusterPrinterActor(id, clusteringOutputPath, center.toString)))
       }
-      val wordCounter = new AtomicInteger()
       val centers: Array[Vector[Double]] = kmeansModel.clusterCenters.map(center => DenseVector(center.toArray))
       vectorModel.getVectors.toSeq.par.foreach {
         case (word, wordVector: Array[Float]) =>
           val v: Vector[Double] = DenseVector(wordVector.map(_.toDouble))
           actors(closestPoint(v, centers)) ! AppendWord(word)
-          val w = wordCounter.incrementAndGet()
-          if (w % 100 == 0) log.debug(s"words: $w")
       }
-      actors.foreach(_ ! PoisonPill)
+      actors.foreach(_ ! Close)
       clusteringOutputSystem.shutdown()
 
     } catch {
@@ -111,5 +109,20 @@ object Cluster extends App {
       }
     }
     bestIndex
+  }
+
+  // Trains a k-means model
+  def loadKmeans(dataFrame: DataFrame): KMeansModel = {
+    // KMeans.load(clusteringModelOutputPath).fit(dataFrame) //load doesnt return a kmeans model, weird..
+
+    val kmeans = new KMeans()
+      .setK(clusterSize)
+      .setMaxIter(kmeansMaxIter)
+      .setFeaturesCol("features")
+      .setPredictionCol("prediction")
+    kmeans.fit(dataFrame)
+    //m.save(clusteringModelOutputPath)
+
+
   }
 }
