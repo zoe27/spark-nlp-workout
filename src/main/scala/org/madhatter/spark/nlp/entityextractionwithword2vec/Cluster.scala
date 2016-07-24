@@ -10,6 +10,8 @@ import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.{SparkConf, SparkContext}
 
+import scala.io.Source
+
 /**
   * Created by madhatter on 7/24/2016.
   */
@@ -64,6 +66,38 @@ object Cluster extends App {
       }
       actors.foreach(_ ! Close)
       clusteringOutputSystem.shutdown()
+      println("-- SEARCH --")
+      while (true) {
+        val line = Source.stdin.getLines().take(1).next().trim
+        println(s"searching $line")
+        val words = line.split(" ")
+        if (words.isEmpty) println("no input")
+        else if (words.length > 1) {
+          val zeroVector = vectorModel.getVectors.take(1).map { case (x, y) => y.map(x => 0d) }.toList(0)
+          var failedSearches: Int = 0
+          def getVec(w: String): Vector[Double] = vectorModel.getVectors.get(w) match {
+            case vec: Some[Array[Float]] =>
+              DenseVector(vec.get.map(_.toDouble))
+            case _ => println(s"Can not find the word $w")
+              failedSearches = failedSearches + 1
+              DenseVector(zeroVector)
+          }
+          val total = words.map(w => getVec(w)).reduce(_ + _)
+          if (failedSearches == words.length) println(s"Can not find $line")
+          else println(s"cluster ${closestPoint(total, centers)}")
+        } else {
+          vectorModel.getVectors.get(words(0)) match {
+            case vec: Some[Array[Float]] =>
+              try {
+                val v: Vector[Double] = DenseVector(vec.get.map(_.toDouble))
+                println(s"cluster ${closestPoint(v, centers)}")
+              } catch {
+                case exp: Exception => println(exp)
+              }
+            case None => println(s"Can not find the word ${words(0)}")
+          }
+        }
+      }
 
     } catch {
       case exp: Exception => log.error("An error has occurred while clustering...", exp)
@@ -113,15 +147,22 @@ object Cluster extends App {
 
   // Trains a k-means model
   def loadKmeans(dataFrame: DataFrame): KMeansModel = {
-    // KMeans.load(clusteringModelOutputPath).fit(dataFrame) //load doesnt return a kmeans model, weird..
+    try {
+      KMeansModel.load(clusteringModelOutputPath)
+    } catch {
+      case exp: Exception =>
+        log.error("Can not load the kmeans model", exp)
+        log.info("Training a new kmeans model")
 
-    val kmeans = new KMeans()
-      .setK(clusterSize)
-      .setMaxIter(kmeansMaxIter)
-      .setFeaturesCol("features")
-      .setPredictionCol("prediction")
-    kmeans.fit(dataFrame)
-    //m.save(clusteringModelOutputPath)
+        val kmeans = new KMeans()
+          .setK(clusterSize)
+          .setMaxIter(kmeansMaxIter)
+          .setFeaturesCol("features")
+          .setPredictionCol("prediction")
+        val model = kmeans.fit(dataFrame)
+        model.save(clusteringModelOutputPath)
+        model
+    }
 
 
   }

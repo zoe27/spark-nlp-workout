@@ -12,10 +12,11 @@ class ClusterPrinterActor(clusterId: Int, path: String, center: String) extends 
   private val file = new File(path + clusterId + ".cluster")
   private val bw = new BufferedWriter(new FileWriter(file))
   private val wordCounter = new AtomicInteger()
-
+  bw.write(s"cluster:$clusterId\n")
   bw.write(center)
   for (i <- 0 until 5) bw.newLine()
   bw.write("--------------words-----------------")
+  bw.newLine()
 
   def receive = {
     case word: AppendWord =>
